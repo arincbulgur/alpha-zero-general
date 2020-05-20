@@ -20,13 +20,16 @@ class Coach():
     in Game and NeuralNet. args are specified in main.py.
     """
 
-    def __init__(self, game, nnet, args):
+    def __init__(self, game, rnnet, bnnet, args):
         self.game = game
-        self.nnet = nnet
-        self.pnet = self.nnet.__class__(self.game)  # the competitor network
+        self.rnnet = rnnet
+        self.bnnet = bnnet
+        self.rpnet = self.rnnet.__class__(self.game)  # the competitor network
+        self.bpnet = self.bnnet.__class__(self.game)  # the competitor network
         self.args = args
-        self.mcts = MCTS(self.game, self.nnet, self.args)
-        self.trainExamplesHistory = []  # history of examples from args.numItersForTrainExamplesHistory latest iterations
+        self.mcts = MCTS(self.game, self.rnnet, self.bnnet, self.args)
+        self.trainExamplesHistoryRunner = []  # history of examples from args.numItersForTrainExamplesHistory latest iterations
+        self.trainExamplesHistoryBlocker = []
         self.skipFirstSelfPlay = False  # can be overriden in loadTrainExamples()
 
     def executeEpisode(self):
@@ -45,28 +48,36 @@ class Coach():
                            pi is the MCTS informed policy vector, v is +1 if
                            the player eventually won the game, else -1.
         """
-        trainExamples = []
+        trainExamplesRunner = []
+        trainExamplesBlocker = []
         board = self.game.getInitBoard()
         self.curPlayer = 1
         episodeStep = 0
+        removal = args.removal
 
         while True:
             episodeStep += 1
+            resStepsRun = (self.args.maxlenOfEps-(episodeStep-2))//2
             canonicalBoard = self.game.getCanonicalForm(board, self.curPlayer)
             temp = int(episodeStep < self.args.tempThreshold)
 
-            pi = self.mcts.getActionProb(canonicalBoard, temp=temp)
-            sym = self.game.getSymmetries(canonicalBoard, pi)
-            for b, p in sym:
-                trainExamples.append([b, self.curPlayer, p, None])
+            pi = self.mcts.getActionProb(canonicalBoard, temp=temp, self.curPlayer, episodeStep)
+            # sym = self.game.getSymmetries(canonicalBoard, pi)
+            # for b, p in sym:
+            #     trainExamples.append([b, self.curPlayer, p, None])
+            # p = list(pi.ravel())
+            if self.curPlayer = 1:
+                trainExamplesRunner.append([b, self.curPlayer, pi, None])
+            else:
+                trainExamplesBlocker.append([b, self.curPlayer, pi, None])
 
             action = np.random.choice(len(pi), p=pi)
             board, self.curPlayer = self.game.getNextState(board, self.curPlayer, action)
 
-            r = self.game.getGameEnded(board, self.curPlayer)
+            r = self.game.getGameEnded(board, self.curPlayer, resStepsRun)
 
             if r != 0:
-                return [(x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer))) for x in trainExamples]
+                return [(x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer))) for x in trainExamplesRunner],[(x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer))) for x in trainExamplesBlocker]
 
     def learn(self):
         """
@@ -82,50 +93,83 @@ class Coach():
             log.info(f'Starting Iter #{i} ...')
             # examples of the iteration
             if not self.skipFirstSelfPlay or i > 1:
-                iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
+                iterationTrainExamplesRunner = deque([], maxlen=self.args.maxlenOfQueue)
+                iterationTrainExamplesBlocker = deque([], maxlen=self.args.maxlenOfQueue)
 
                 for _ in tqdm(range(self.args.numEps), desc="Self Play"):
-                    self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree
-                    iterationTrainExamples += self.executeEpisode()
+                    self.mcts = MCTS(self.game, self.rnnet, self.bnnet, self.args)  # reset search tree
+                    iterationTrainExamplesRunner, iterationTrainExamplesBlocker += self.executeEpisode()
 
-                # save the iteration examples to the history 
-                self.trainExamplesHistory.append(iterationTrainExamples)
+                # save the iteration examples to the history
+                self.trainExamplesHistoryRunner.append(iterationTrainExamplesRunner)
+                self.trainExamplesHistoryBlocker.append(iterationTrainExamplesBlocker)
 
-            if len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
+            if len(self.trainExamplesHistoryRunner) > self.args.numItersForTrainExamplesHistory:
                 log.warning(
-                    f"Removing the oldest entry in trainExamples. len(trainExamplesHistory) = {len(self.trainExamplesHistory)}")
-                self.trainExamplesHistory.pop(0)
+                    f"Removing the oldest entry in trainExamples. len(trainExamplesHistory) = {len(self.trainExamplesHistoryRunner)}")
+                self.trainExamplesHistoryRunner.pop(0)
+                self.trainExamplesHistoryBlocker.pop(0)
             # backup history to a file
-            # NB! the examples were collected using the model from the previous iteration, so (i-1)  
+            # NB! the examples were collected using the model from the previous iteration, so (i-1)
             self.saveTrainExamples(i - 1)
 
             # shuffle examples before training
-            trainExamples = []
-            for e in self.trainExamplesHistory:
-                trainExamples.extend(e)
-            shuffle(trainExamples)
+            trainExamplesRunner = []
+            for e in self.trainExamplesHistoryRunner:
+                trainExamplesRunner.extend(e)
+            shuffle(trainExamplesRunner)
+
+            trainExamplesBlocker = []
+            for e in self.trainExamplesHistoryBlocker:
+                trainExamplesBlocker.extend(e)
+            shuffle(trainExamplesBlocker)
 
             # training new network, keeping a copy of the old one
-            self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-            self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-            pmcts = MCTS(self.game, self.pnet, self.args)
+            self.rnnet.save_checkpoint(folder=self.args.checkpoint, filename='temprunner.pth.tar')
+            self.rpnet.load_checkpoint(folder=self.args.checkpoint, filename='temprunner.pth.tar')
+            self.bnnet.save_checkpoint(folder=self.args.checkpoint, filename='tempblocker.pth.tar')
+            self.bpnet.load_checkpoint(folder=self.args.checkpoint, filename='tempblocker.pth.tar')
+            rpbpmcts = MCTS(self.game, self.rpnet, self.bpnet, self.args)
 
-            self.nnet.train(trainExamples)
-            nmcts = MCTS(self.game, self.nnet, self.args)
+            self.rnnet.train(trainExamplesRunner)
+            self.bnnet.train(trainExamplesBlocker)
+            rnbnmcts = MCTS(self.game, self.rnnet, self.bnnet, self.args)
+            rnbpmcts = MCTS(self.game, self.rnnet, self.bpnet, self.args)
+            rpbnmcts = MCTS(self.game, self.rpnet, self.bnnet, self.args)
 
             log.info('PITTING AGAINST PREVIOUS VERSION')
-            arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)),
-                          lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game)
-            pwins, nwins, draws = arena.playGames(self.args.arenaCompare)
+            arena1 = Arena(lambda x,y: np.argmax(rpbpmcts.getActionProb(x, temp=0, 1, y)),
+                          lambda x,y: np.argmax(rpbpmcts.getActionProb(x, temp=0, -1, y)), self.game)
+            rpwins1, bpwins1, draws = arena1.playGames(self.args.arenaCompare)
 
-            log.info('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))
-            if pwins + nwins == 0 or float(nwins) / (pwins + nwins) < self.args.updateThreshold:
-                log.info('REJECTING NEW MODEL')
-                self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
+            arena2 = Arena(lambda x,y: np.argmax(rpbnmcts.getActionProb(x, temp=0, 1, y)),
+                          lambda x,y: np.argmax(rpbnmcts.getActionProb(x, temp=0, -1, y)), self.game)
+            rpwins2, bnwins1, draws = arena2.playGames(self.args.arenaCompare)
+
+            arena3 = Arena(lambda x,y: np.argmax(rnbpmcts.getActionProb(x, temp=0, 1, y)),
+                          lambda x,y: np.argmax(rnbpmcts.getActionProb(x, temp=0, -1, y)), self.game)
+            rnwins1, bpwins2, draws = arena3.playGames(self.args.arenaCompare)
+
+            arena4 = Arena(lambda x,y: np.argmax(rnbnmcts.getActionProb(x, temp=0, 1, y)),
+                          lambda x,y: np.argmax(rnbnmcts.getActionProb(x, temp=0, -1, y)), self.game)
+            rnwins2, bnwins2, draws = arena4.playGames(self.args.arenaCompare)
+
+            # log.info('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))
+            if float(rnwins1 + rnwins2) / (rpwins1 + rpwins2 + rnwins1 + rnwins2) < self.args.updateThreshold:
+                log.info('REJECTING NEW RUNNER MODEL')
+                self.rnnet.load_checkpoint(folder=self.args.checkpoint, filename='temprunner.pth.tar')
             else:
-                log.info('ACCEPTING NEW MODEL')
-                self.nnet.save_checkpoint(folder=self.args.checkpoint, filename=self.getCheckpointFile(i))
-                self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
+                log.info('ACCEPTING NEW RUNNER MODEL')
+                self.rnnet.save_checkpoint(folder=self.args.checkpoint, filename=('runner_' + self.getCheckpointFile(i)))
+                self.rnnet.save_checkpoint(folder=self.args.checkpoint, filename='runnerbest.pth.tar')
+
+            if float(bnwins1 + bnwins2) / (bpwins1 + bpwins2 + bnwins1 + bnwins2) < self.args.updateThreshold:
+                log.info('REJECTING NEW BLOCKER MODEL')
+                self.bnnet.load_checkpoint(folder=self.args.checkpoint, filename='tempblocker.pth.tar')
+            else:
+                log.info('ACCEPTING NEW BLOCKER MODEL')
+                self.bnnet.save_checkpoint(folder=self.args.checkpoint, filename=('blocker_' + self.getCheckpointFile(i)))
+                self.bnnet.save_checkpoint(folder=self.args.checkpoint, filename='blockerbest.pth.tar')
 
     def getCheckpointFile(self, iteration):
         return 'checkpoint_' + str(iteration) + '.pth.tar'
@@ -134,9 +178,13 @@ class Coach():
         folder = self.args.checkpoint
         if not os.path.exists(folder):
             os.makedirs(folder)
-        filename = os.path.join(folder, self.getCheckpointFile(iteration) + ".examples")
-        with open(filename, "wb+") as f:
-            Pickler(f).dump(self.trainExamplesHistory)
+        filename_run = os.path.join(folder, "runner_" + self.getCheckpointFile(iteration) + ".examples")
+        with open(filename_run, "wb+") as f:
+            Pickler(f).dump(self.trainExamplesHistoryRunner)
+        f.closed
+        filename_blo = os.path.join(folder, "blocker_" + self.getCheckpointFile(iteration) + ".examples")
+        with open(filename_blo, "wb+") as f:
+            Pickler(f).dump(self.trainExamplesHistoryBlocker)
         f.closed
 
     def loadTrainExamples(self):
