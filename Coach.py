@@ -66,7 +66,7 @@ class Coach():
             # for b, p in sym:
             #     trainExamples.append([b, self.curPlayer, p, None])
             # p = list(pi.ravel())
-            if self.curPlayer = 1:
+            if self.curPlayer == 1:
                 trainExamplesRunner.append([b, self.curPlayer, pi, None])
             else:
                 trainExamplesBlocker.append([b, self.curPlayer, pi, None])
