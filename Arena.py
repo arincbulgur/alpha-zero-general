@@ -1,6 +1,7 @@
 import logging
 
 from tqdm import tqdm
+import numpy as np
 
 log = logging.getLogger(__name__)
 
@@ -10,7 +11,7 @@ class Arena():
     An Arena class where any 2 agents can be pit against each other.
     """
 
-    def __init__(self, player1, player2, game, display=None):
+    def __init__(self, player1, player2, game, maxlenOfEps, display=None):
         """
         Input:
             player 1,2: two functions that takes board as input, return action
@@ -26,8 +27,9 @@ class Arena():
         self.player2 = player2
         self.game = game
         self.display = display
+        self.maxlenOfEps = maxlenOfEps
 
-    def playGame(self, verbose=False):
+    def playGame(self, verbose=False, game_index=0, iteration=0):
         """
         Executes one episode of a game.
 
@@ -41,15 +43,17 @@ class Arena():
         curPlayer = 1
         board = self.game.getInitBoard()
         it = 0
-        while self.game.getGameEnded(board, curPlayer,(self.args.maxlenOfEps-(it-1))//2) == 0:
+        gamelist=[]
+        while self.game.getGameEnded(board, curPlayer,(self.maxlenOfEps-(it-1))//2) == 0:
             it += 1
             if verbose:
-                assert self.display
-                print("Turn ", str(it), "Player ", str(curPlayer))
-                self.display(board)
+                #assert self.display
+                #print("Turn ", str(it), "Player ", str(curPlayer))
+                #self.display(board)
+                gamelist.append(board)
             action = players[curPlayer + 1](self.game.getCanonicalForm(board, curPlayer), it)
 
-            valids = self.game.getValidMoves(self.game.getCanonicalForm(board, curPlayer), 1)
+            valids = self.game.getValidMoves(self.game.getCanonicalForm(board, curPlayer), curPlayer)
 
             if valids[action] == 0:
                 log.error(f'Action {action} is not valid!')
@@ -57,12 +61,14 @@ class Arena():
                 assert valids[action] > 0
             board, curPlayer = self.game.getNextState(board, curPlayer, action)
         if verbose:
-            assert self.display
-            print("Game over: Turn ", str(it), "Result ", str(self.game.getGameEnded(board, 1)))
-            self.display(board)
-        return curPlayer * self.game.getGameEnded(board, curPlayer)
+            #assert self.display
+            #print("Game over: Turn ", str(it), "Result ", str(self.game.getGameEnded(board, 1)))
+            #self.display(board)
+            gamelist.append(board)
+            np.save('./simulations/gameboard%d%d.npy' % (iteration, game_index),gamelist)
+        return self.game.getGameEnded(board, curPlayer, (self.maxlenOfEps-(it-1))//2)
 
-    def playGames(self, num, verbose=False):
+    def playGames(self, num, verbose=False, iteration=0):
         """
         Plays num games in which player1 starts num/2 games and player2 starts
         num/2 games.
@@ -77,8 +83,10 @@ class Arena():
         oneWon = 0
         twoWon = 0
         draws = 0
+        game_index = 0
         for _ in tqdm(range(num), desc="Arena.playGames (1)"):
-            gameResult = self.playGame(verbose=verbose)
+            game_index += 1
+            gameResult = self.playGame(verbose=verbose, game_index=game_index, iteration = iteration)
             if gameResult == 1:
                 oneWon += 1
             elif gameResult == -1:

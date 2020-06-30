@@ -17,11 +17,12 @@ class Board():
     # list of all 8 directions on the board, as (x,y) offsets
     __directions = [(1,0),(0,-1),(-1,0),(0,1)]
 
-    def __init__(self, n_row, n_col):
+    def __init__(self, n_row, n_col, goal):
         "Set up initial board configuration."
 
         self.n_row = n_row
         self.n_col = n_col
+        self.goal = goal
         # Create the empty board array.
         self.pieces = [None]*6 # 6 stands for binary feature planes (4 edges, 2 agents)
         for i in range(6):
@@ -30,12 +31,12 @@ class Board():
                 self.pieces[i][j] = [0]*self.n_col
 
         # Set up for random initial positions of runner and blocker
-        self.r_row = random.randint(0,self.n_row-1)
-        self.r_col = random.randint(0,self.n_col-1)
+        self.r_row = random.choice([i for i in range(0,self.n_row) if i not in [self.goal[0]]])
+        self.r_col = random.choice([i for i in range(0,self.n_col) if i not in [self.goal[1]]])
         self.b_row = random.choice([i for i in range(0,self.n_row) if i not in [self.r_row]])
-        self.b_col = random.choice([i for i in range(0,self.n_col) if i not in [r_col]])
-        self.pieces[4][r_row][r_col] = 1
-        self.pieces[5][b_row][b_col] = 1
+        self.b_col = random.choice([i for i in range(0,self.n_col) if i not in [self.r_col]])
+        self.pieces[4][self.r_row][self.r_col] = 1
+        self.pieces[5][self.b_row][self.b_col] = 1
 
     # add [][] indexer syntax to the Board
     def __getitem__(self, index):
@@ -62,12 +63,12 @@ class Board():
         if color == 1:
             for i in range(4):
                 if self[i][self.r_row][self.r_col] == 0 and tuple(map(sum,zip((self.r_row,self.r_col),self.__directions[i])))!=(self.b_row,self.b_col):
-                    moves.update(i)
+                    moves.add(i)
         else:
             for i in range(4):
                 if self[i][self.b_row][self.b_col] == 0 and tuple(map(sum,zip((self.b_row,self.b_col),self.__directions[i])))!=(self.r_row,self.r_col):
-                    moves.update(i)
-                    moves.update(i+4)
+                    moves.add(i)
+                    moves.add(i+4)
         return list(moves)
 
     def has_legal_moves(self, color):
@@ -114,14 +115,30 @@ class Board():
 
         if color == 1:
             move = tuple(map(sum,zip((self.r_row,self.r_col),self.__directions[action])))
-            self[4][self.r_row][self.r_col] = 0
-            self[4][move[0]][move[1]] = 1
+            if move[0] >= 0 and move[0] < self.n_row and move[1] >= 0 and move[1] < self.n_col:
+                self[4][self.r_row][self.r_col] = 0
+                self[4][move[0]][move[1]] = 1
         else:
-            move = tuple(map(sum,zip((self.r_row,self.r_col),self.__directions[action%4])))
-            self[5][self.b_row][self.b_col] = 0
-            self[5][move[0]][move[1]] = 1
+            move = tuple(map(sum,zip((self.b_row,self.b_col),self.__directions[action%4])))
+            if move[0] >= 0 and move[0] < self.n_row and move[1] >= 0 and move[1] < self.n_col:
+                self[5][self.b_row][self.b_col] = 0
+                self[5][move[0]][move[1]] = 1
             if action >= 4:
                 self[action%4][self.b_row][self.b_col] = 1
+                if move[0] >= 0 and move[0] < self.n_row and move[1] >=0 and move[1] < self.n_col:
+                    self[(action+2)%4][move[0]][move[1]] = 1
+                #self[0][self.b_row][self.b_col] = 1
+                #self[1][self.b_row][self.b_col] = 1
+                #self[2][self.b_row][self.b_col] = 1
+                #self[3][self.b_row][self.b_col] = 1
+                #if self.b_row > 0:
+                #    self[0][self.b_row-1][self.b_col] = 1
+                #if self.b_row < self.n_row-1:
+                #    self[2][self.b_row+1][self.b_col] = 1
+                #if self.b_col > 0:
+                #    self[3][self.b_row][self.b_col-1] = 1
+                #if self.b_col < self.n_col-1:
+                #    self[1][self.b_row][self.b_col+1] = 1
 
     def reachability(self,resStepsRun, goal):
         reachSet = set()
@@ -134,7 +151,7 @@ class Board():
                         move = tuple(map(sum,zip(j,self.__directions[k])))
                         if move[0] >= 0 and move[0] < self.n_row and move[1] >= 0 and move[1] < self.n_col:
                             if not move in list(set().union(reachSet,newSet)):
-                                newSet.append(move)
+                                newSet.add(move)
             currentSet = newSet - reachSet
             reachSet = set().union(reachSet,newSet)
             if (self.r_row,self.r_col) in reachSet:

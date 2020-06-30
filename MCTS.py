@@ -26,7 +26,7 @@ class MCTS():
         self.Es = {}  # stores game.getGameEnded ended for board s
         self.Vs = {}  # stores game.getValidMoves for board s
 
-    def getActionProb(self, canonicalBoard, temp=1, curPlayer, episodeStep):
+    def getActionProb(self, canonicalBoard, curPlayer, episodeStep, temp=1):
         """
         This function performs numMCTSSims simulations of MCTS starting from
         canonicalBoard.
@@ -44,7 +44,7 @@ class MCTS():
             actionSize = self.game.getActionSizeRunner()
         else:
             actionSize = self.game.getActionSizeBlocker()
-        counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(actionSize)]
+        counts = [self.Nsa[(s, curPlayer, a)] if (s, curPlayer, a) in self.Nsa else 0 for a in range(actionSize)]
 
         if temp == 0:
             bestAs = np.array(np.argwhere(counts == np.max(counts))).flatten()
@@ -81,41 +81,40 @@ class MCTS():
         s = self.game.stringRepresentation(canonicalBoard)
         resStepsRun = (self.args.maxlenOfEps-(episodeStep-2))//2
 
-        if s not in self.Es:
-            self.Es[s] = self.game.getGameEnded(canonicalBoard, 1, resStepsRun)
-        if self.Es[s] != 0:
+        gameEnding = self.game.getGameEnded(canonicalBoard, 1, resStepsRun)
+        if gameEnding != 0:
             # terminal node
-            return -self.Es[s]
+            return -gameEnding*curPlayer
 
-        if s not in self.Ps:
+        if (s, curPlayer) not in self.Ps:
             # leaf node
             if curPlayer == 1:
-                self.Ps[s], v = self.rnnet.predict(canonicalBoard)
+                self.Ps[(s, curPlayer)], v = self.rnnet.predict(canonicalBoard)
             else:
-                self.Ps[s], v = self.bnnet.predict(canonicalBoard)
+                self.Ps[(s, curPlayer)], v = self.bnnet.predict(canonicalBoard)
             valids = self.game.getValidMoves(canonicalBoard, curPlayer)
-            self.Ps[s] = self.Ps[s] * valids  # masking invalid moves
-            sum_Ps_s = np.sum(self.Ps[s])
+            self.Ps[(s, curPlayer)] = self.Ps[(s, curPlayer)] * valids  # masking invalid moves
+            sum_Ps_s = np.sum(self.Ps[(s, curPlayer)])
             if sum_Ps_s > 0:
-                self.Ps[s] /= sum_Ps_s  # renormalize
+                self.Ps[(s, curPlayer)] /= sum_Ps_s  # renormalize
             else:
                 # if all valid moves were masked make all valid moves equally probable
 
                 # NB! All valid moves may be masked if either your NNet architecture is insufficient or you've get overfitting or something else.
                 # If you have got dozens or hundreds of these messages you should pay attention to your NNet and/or training process.
                 log.error("All valid moves were masked, doing a workaround.")
-                self.Ps[s] = self.Ps[s] + valids
-                self.Ps[s] /= np.sum(self.Ps[s])
+                self.Ps[(s, curPlayer)] = self.Ps[(s, curPlayer)] + valids
+                self.Ps[(s, curPlayer)] /= np.sum(self.Ps[(s, curPlayer)])
 
             expCost = 0
             if curPlayer == -1:
                 cost = self.args.remCost
-                expCost = np.inner(self.Ps[s],np.array([0,0,0,0,cost,cost,cost,cost,0]))
-            self.Vs[s] = valids
-            self.Ns[s] = 0
+                expCost = np.inner(self.Ps[(s,curPlayer)],np.array([0,0,0,0,cost,cost,cost,cost,0]))
+            self.Vs[(s, curPlayer)] = valids
+            self.Ns[(s, curPlayer)] = 0
             return -v+expCost
 
-        valids = self.Vs[s]
+        valids = self.Vs[(s, curPlayer)]
         cur_best = -float('inf')
         best_act = -1
         if curPlayer == 1:
@@ -126,11 +125,11 @@ class MCTS():
         # pick the action with the highest upper confidence bound
         for a in range(actionSize):
             if valids[a]:
-                if (s, a) in self.Qsa:
-                    u = self.Qsa[(s, a)] + self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s]) / (
-                            1 + self.Nsa[(s, a)])
+                if (s, curPlayer, a) in self.Qsa:
+                    u = self.Qsa[(s, curPlayer, a)] + self.args.cpuct * self.Ps[(s,curPlayer)][a] * math.sqrt(self.Ns[(s,curPlayer)]) / (
+                            1 + self.Nsa[(s, curPlayer, a)])
                 else:
-                    u = self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s] + EPS)  # Q = 0 ?
+                    u = self.args.cpuct * self.Ps[(s,curPlayer)][a] * math.sqrt(self.Ns[(s,curPlayer)] + EPS)  # Q = 0 ?
 
                 if u > cur_best:
                     cur_best = u
@@ -139,15 +138,16 @@ class MCTS():
         a = best_act
         next_s, next_player= self.game.getNextState(canonicalBoard, curPlayer, a)
 
+        # print(episodeStep, self.game.getGameEnded(canonicalBoard, 1, resStepsRun))
         v = self.search(next_s,next_player,episodeStep+1)
 
-        if (s, a) in self.Qsa:
-            self.Qsa[(s, a)] = (self.Nsa[(s, a)] * self.Qsa[(s, a)] + v) / (self.Nsa[(s, a)] + 1)
-            self.Nsa[(s, a)] += 1
+        if (s, curPlayer, a) in self.Qsa:
+            self.Qsa[(s, curPlayer, a)] = (self.Nsa[(s,curPlayer, a)] * self.Qsa[(s, curPlayer, a)] + v) / (self.Nsa[(s,curPlayer, a)] + 1)
+            self.Nsa[(s,curPlayer, a)] += 1
 
         else:
-            self.Qsa[(s, a)] = v
-            self.Nsa[(s, a)] = 1
+            self.Qsa[(s, curPlayer, a)] = v
+            self.Nsa[(s, curPlayer, a)] = 1
 
-        self.Ns[s] += 1
+        self.Ns[(s,curPlayer)] += 1
         return -v

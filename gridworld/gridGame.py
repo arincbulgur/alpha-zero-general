@@ -2,7 +2,7 @@ from __future__ import print_function
 import sys
 sys.path.append('..')
 from Game import Game
-from .OthelloLogic import Board
+from .gridLogic import Board
 import numpy as np
 
 class gridGame(Game):
@@ -23,7 +23,7 @@ class gridGame(Game):
 
     def getInitBoard(self):
         # return initial board (numpy board)
-        b = Board(self.n_row, self.n_col)
+        b = Board(self.n_row, self.n_col, self.goal)
         return np.array(b.pieces)
 
     def getBoardSize(self):
@@ -43,7 +43,7 @@ class gridGame(Game):
         # action must be a valid move
         if (player == 1 and action == self.getActionSizeRunner()-1) or (player == -1 and action == self.getActionSizeBlocker()-1):
             return (board, -player)
-        b = Board(self.n_row,self.n_col)
+        b = Board(self.n_row,self.n_col, self.goal)
         b.pieces = np.copy(board)
         if player == 1:
             runner = np.where(board[4] == 1)
@@ -53,7 +53,6 @@ class gridGame(Game):
             blocker = np.where(board[5] == 1)
             b.b_row = blocker[0][0]
             b.b_col = blocker[1][0]
-        move = (int(action/self.n), action%self.n)
         b.execute_move(action, player)
         return (b.pieces, -player)
 
@@ -63,7 +62,7 @@ class gridGame(Game):
             valids = [0]*self.getActionSizeRunner()
         else:
             valids = [0]*self.getActionSizeBlocker()
-        b = Board(self.n_row,self.n_col)
+        b = Board(self.n_row,self.n_col, self.goal)
         b.pieces = np.copy(board)
         runner = np.where(board[4] == 1)
         blocker = np.where(board[5] == 1)
