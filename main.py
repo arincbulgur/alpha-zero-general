@@ -4,8 +4,8 @@ import logging
 import coloredlogs
 
 from Coach import Coach
-from gridworld.gridGame import gridGame as Game
-from gridworld.pytorch.NNet import NNetWrapper as nn
+from graph.graphGame import graphGame as Game
+from graph.pytorch.NNet import NNetWrapper as nn
 from utils import *
 
 log = logging.getLogger(__name__)
