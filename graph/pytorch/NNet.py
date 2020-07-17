@@ -11,7 +11,7 @@ from NeuralNet import NeuralNet
 
 import torch
 import torch.optim as optim
-from torch_geometric.data import 
+from torch_geometric.data import Data, DataLoader
 
 from .graphNNet import graphNNet as onnet
 
@@ -27,15 +27,14 @@ args = dotdict({
 
 class NNetWrapper(NeuralNet):
     def __init__(self, game, agent):
-        self.nnet = onnet(game, agent, args)
         self.board_x, self.board_y = game.getBoardSize()
         if agent == 1:
             self.action_size = game.getActionSizeRunner()
         else:
             self.action_size = game.getActionSizeBlocker()
 
-        if args.cuda:
-            self.nnet.cuda()
+        self.device = torch.device('cuda' if args.cuda else 'cpu')
+        self.nnet = onnet(game, agent, args).to(self.device)
 
     def train(self, examples):
 
@@ -53,20 +52,22 @@ class NNetWrapper(NeuralNet):
             for _ in t:
                 sample_ids = np.random.randint(len(examples), size=args.batch_size)
                 boards, pis, vs = list(zip(*[examples[i] for i in sample_ids]))
-                graphs = convert2graph(boards, pis, vs)
+                graphs = self.convert2graph(boards, pis, vs)
                 loader = DataLoader(graphs, batch_size=len(graphs))
-                data = loader[0].cuda()
 
-                # compute output
-                out_pi, out_v = self.nnet(data)
-                l_pi = self.loss_pi(target_pis, out_pi)
-                l_v = self.loss_v(target_vs, out_v)
-                total_loss = l_pi + l_v
+                for data in loader:
+                    data = data.to(self.device)
 
-                # compute gradient and do SGD step
-                optimizer.zero_grad()
-                total_loss.backward()
-                optimizer.step()
+                    # compute output
+                    out_pi, out_v = self.nnet(data)
+                    l_pi = self.loss_pi(target_pis, out_pi)
+                    l_v = self.loss_v(target_vs, out_v)
+                    total_loss = l_pi + l_v
+
+                    # compute gradient and do SGD step
+                    optimizer.zero_grad()
+                    total_loss.backward()
+                    optimizer.step()
 
     # def train(self, examples):
     #     """
@@ -118,15 +119,16 @@ class NNetWrapper(NeuralNet):
         start = time.time()
 
         # preparing input
-        graph = convert2graph_predict(board)
+        graph = self.convert2graph_predict(board)
         loader = DataLoader([graph], batch_size=1)
-        data = loader[0].cuda()
         # board = torch.FloatTensor(board.astype(np.float64))
         # if args.cuda: board = board.contiguous().cuda()
         # board = board.view(6, self.board_x, self.board_y)
         self.nnet.eval()
-        with torch.no_grad():
-            pi, v = self.nnet(data)
+        for data in loader:
+            data = data.to(self.device)
+            with torch.no_grad():
+                pi, v = self.nnet(data)
 
         # print('PREDICTION TIME TAKEN : {0:03f}'.format(time.time()-start))
         return torch.exp(pi).data.cpu().numpy()[0], v.data.cpu().numpy()[0]
@@ -195,15 +197,15 @@ class NNetWrapper(NeuralNet):
                         node_label.append([0,0,1])
                     else:
                         node_label.append([1,0,0])
-            edge_index = torch.tensor([edge_dep,edge_arr, dtype=torch.long)
-            x = torch.tensor([node_label], dtype=torch.float)
+            edge_index = torch.tensor([edge_dep,edge_arr], dtype=torch.long)
+            x = torch.tensor(node_label, dtype=torch.float)
             pi = torch.tensor([p], dtype=torch.float)
             v = torch.tensor([val], dtype=torch.float)
             data = Data(x=x, edge_index=edge_index, pi=pi, v=v)
             data_list.append(data)
         return data_list
 
-    def convert2graph_predict(self, board):
+    def convert2graph_predict(self, b):
         edge_dep = []
         edge_arr = []
         node_label = []
@@ -239,8 +241,8 @@ class NNetWrapper(NeuralNet):
                     node_label.append([0,0,1])
                 else:
                     node_label.append([1,0,0])
-        edge_index = torch.tensor([edge_dep,edge_arr, dtype=torch.long)
-        x = torch.tensor([node_label], dtype=torch.float)
-        data = Data(x=x, edge_index=edge_index, pi=pi, v=v)
+        edge_index = torch.tensor([edge_dep,edge_arr], dtype=torch.long)
+        x = torch.tensor(node_label, dtype=torch.float)
+        data = Data(x=x, edge_index=edge_index)
 
         return data

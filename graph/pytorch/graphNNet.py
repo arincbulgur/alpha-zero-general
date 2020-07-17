@@ -26,14 +26,14 @@ class graphNNet(nn.Module):
 
         super(graphNNet, self).__init__()
 
-        self.conv1 = GraphConv(3, 128)
-        self.pool1 = TopKPooling(128, ratio=0.8)
-        self.conv2 = GraphConv(128, 128)
-        self.pool2 = TopKPooling(128, ratio=0.8)
-        self.conv3 = GraphConv(128, 128)
-        self.pool3 = TopKPooling(128, ratio=0.8)
+        self.conv1 = GraphConv(3, 512)
+        self.pool1 = TopKPooling(512, ratio=0.8)
+        self.conv2 = GraphConv(512, 512)
+        self.pool2 = TopKPooling(512, ratio=0.8)
+        self.conv3 = GraphConv(512, 512)
+        self.pool3 = TopKPooling(512, ratio=0.8)
 
-        self.lin1 = nn.Linear(256, 128)
+        self.lin1 = nn.Linear(1024, 128)
         self.lin2 = nn.Linear(128, 64)
         self.lin3 = nn.Linear(64, self.action_size)
         self.lin4 = nn.Linear(64, 1)
