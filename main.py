@@ -14,7 +14,7 @@ coloredlogs.install(level='INFO')  # Change this to DEBUG to see more info.
 
 args = dotdict({
     'numIters': 1000,
-    'numEps': 100,              # Number of complete self-play games to simulate during a new iteration.
+    'numEps': 50,              # Number of complete self-play games to simulate during a new iteration.
     'maxlenOfEps': 40,          # Max number of steps in an episode
     'removal':10,               # Blocker's removal limit
     'remCost':0,                # Cost of removing one edge

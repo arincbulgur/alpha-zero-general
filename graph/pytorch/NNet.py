@@ -60,8 +60,8 @@ class NNetWrapper(NeuralNet):
 
                     # compute output
                     out_pi, out_v = self.nnet(data)
-                    l_pi = self.loss_pi(target_pis, out_pi)
-                    l_v = self.loss_v(target_vs, out_v)
+                    l_pi = self.loss_pi(data.pi, out_pi)
+                    l_v = self.loss_v(data.v, out_v)
                     total_loss = l_pi + l_v
 
                     # compute gradient and do SGD step
@@ -161,7 +161,7 @@ class NNetWrapper(NeuralNet):
 
     def convert2graph(self, boards, pis ,vs):
         data_list = []
-        for (b,p,val) in (boards,pis,vs):
+        for (b,p,val) in zip(boards,pis,vs):
             edge_dep = []
             edge_arr = []
             node_label = []
