@@ -62,13 +62,20 @@ class Board():
 
         if color == 1:
             for i in range(4):
-                if self[i][self.r_row][self.r_col] == 0 and tuple(map(sum,zip((self.r_row,self.r_col),self.__directions[i])))!=(self.b_row,self.b_col):
-                    moves.add(i)
+                # Required if the runner can't move to the blocker's grid cell.
+                # if self[i][self.r_row][self.r_col] == 0 and tuple(map(sum,zip((self.r_row,self.r_col),self.__directions[i])))!=(self.b_row,self.b_col):
+                #     moves.add(i)
+                # The runner is allowed to move to the blocker's grid cell.
+                moved.add(i)
         else:
             for i in range(4):
-                if self[i][self.b_row][self.b_col] == 0 and tuple(map(sum,zip((self.b_row,self.b_col),self.__directions[i])))!=(self.r_row,self.r_col):
-                    moves.add(i)
-                    moves.add(i+4)
+                # Required if the blocker can't move to the runner's grid cell.
+                # if self[i][self.b_row][self.b_col] == 0 and tuple(map(sum,zip((self.b_row,self.b_col),self.__directions[i])))!=(self.r_row,self.r_col):
+                #     moves.add(i)
+                #     moves.add(i+4)
+                # The blocker is allowed to move to the runner's grid cell.
+                moves.add(i)
+                moves.add(i+4)
         return list(moves)
 
     def has_legal_moves(self, color):
