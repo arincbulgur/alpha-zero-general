@@ -17,26 +17,26 @@ class Board():
     # list of all 8 directions on the board, as (x,y) offsets
     __directions = [(1,0),(0,-1),(-1,0),(0,1)]
 
-    def __init__(self, n_row, n_col, goal):
+    def __init__(self, n_nodes, goal):
         "Set up initial board configuration."
 
-        self.n_row = n_row
-        self.n_col = n_col
+        self.n_nodes = n_nodes
         self.goal = goal
-        # Create the empty board array.
-        self.pieces = [None]*6 # 6 stands for binary feature planes (4 edges, 2 agents)
-        for i in range(6):
-            self.pieces[i] = [None]*self.n_row
-            for j in range(self.n_row):
-                self.pieces[i][j] = [0]*self.n_col
+        # Create the empty graph array.
+        self.pieces = [None]*3 # 3 stands for binary feature planes (1 connectivity, 2 agents)
+        for i in range(3):
+            self.pieces[i] = [None]*self.n_nodes
+            for j in range(self.n_nodes):
+                self.pieces[i][j] = [0]*self.n_nodes
 
-        # Set up for random initial positions of runner and blocker
-        self.r_row = random.choice([i for i in range(0,self.n_row) if i not in [self.goal[0]]])
-        self.r_col = random.choice([i for i in range(0,self.n_col) if i not in [self.goal[1]]])
-        self.b_row = random.choice([i for i in range(0,self.n_row) if i not in [self.r_row]])
-        self.b_col = random.choice([i for i in range(0,self.n_col) if i not in [self.r_col]])
-        self.pieces[4][self.r_row][self.r_col] = 1
-        self.pieces[5][self.b_row][self.b_col] = 1
+        # Set up for random connectivity and initial positions of runner and blocker
+        for i in range(self.n_nodes):
+            for j in range(self.n_nodes):
+                self.pieces[0][i][j] = random.choice(range(0,2))
+        self.r_node = random.choice([i for i in range(0,self.n_nodes) if i not in [self.goal])
+        self.b_node = random.choice([i for i in range(0,self.n_nodes) if i not in [self.r_node]])
+        self.pieces[1][self.r_node][self.r_node] = 1
+        self.pieces[2][self.b_node][self.b_node] = 1
 
     # add [][] indexer syntax to the Board
     def __getitem__(self, index):
@@ -61,14 +61,14 @@ class Board():
         moves = set()  # stores the legal moves.
 
         if color == 1:
-            for i in range(4):
-                if self[i][self.r_row][self.r_col] == 0 and tuple(map(sum,zip((self.r_row,self.r_col),self.__directions[i])))!=(self.b_row,self.b_col):
+            for i in range(self.n_nodes):
+                if self[0][self.r_node][i] == 1:
                     moves.add(i)
         else:
-            for i in range(4):
-                if self[i][self.b_row][self.b_col] == 0 and tuple(map(sum,zip((self.b_row,self.b_col),self.__directions[i])))!=(self.r_row,self.r_col):
+            for i in range(self.n_nodes):
+                if self[0][self.b_node][i] == 1:
                     moves.add(i)
-                    moves.add(i+4)
+                    moves.add(i+self.n_nodes)
         return list(moves)
 
     def has_legal_moves(self, color):
@@ -114,52 +114,32 @@ class Board():
         """
 
         if color == 1:
-            move = tuple(map(sum,zip((self.r_row,self.r_col),self.__directions[action])))
-            if move[0] >= 0 and move[0] < self.n_row and move[1] >= 0 and move[1] < self.n_col:
-                self[4][self.r_row][self.r_col] = 0
-                self[4][move[0]][move[1]] = 1
+            self[1][action][action] = 1
+            self[1][self.r_node][self.r_node] = 0
         else:
-            move = tuple(map(sum,zip((self.b_row,self.b_col),self.__directions[action%4])))
-            if move[0] >= 0 and move[0] < self.n_row and move[1] >= 0 and move[1] < self.n_col:
-                self[5][self.b_row][self.b_col] = 0
-                self[5][move[0]][move[1]] = 1
-            if action >= 4:
-                self[action%4][self.b_row][self.b_col] = 1
-                if move[0] >= 0 and move[0] < self.n_row and move[1] >=0 and move[1] < self.n_col:
-                    self[(action+2)%4][move[0]][move[1]] = 1
-                #self[0][self.b_row][self.b_col] = 1
-                #self[1][self.b_row][self.b_col] = 1
-                #self[2][self.b_row][self.b_col] = 1
-                #self[3][self.b_row][self.b_col] = 1
-                #if self.b_row > 0:
-                #    self[0][self.b_row-1][self.b_col] = 1
-                #if self.b_row < self.n_row-1:
-                #    self[2][self.b_row+1][self.b_col] = 1
-                #if self.b_col > 0:
-                #    self[3][self.b_row][self.b_col-1] = 1
-                #if self.b_col < self.n_col-1:
-                #    self[1][self.b_row][self.b_col+1] = 1
+            self[2][action%self.n_nodes][action%self.n_nodes] = 1
+            self[2][self.b_node][self.b_node] = 0
+            if action >= self.n_nodes:
+                self[0][self.b_node][action%self.n_nodes] = 0
 
     def reachability(self,resStepsRun, goal):
         reachSet = set()
-        currentSet = {(goal[0],goal[1])}
+        currentSet = {goal}
         for i in range(resStepsRun):
             newSet = set()
             for j in currentSet:
-                for k in range(4):
-                    if self[k][j[0]][j[1]] == 0:
-                        move = tuple(map(sum,zip(j,self.__directions[k])))
-                        if move[0] >= 0 and move[0] < self.n_row and move[1] >= 0 and move[1] < self.n_col:
-                            if not move in list(set().union(reachSet,newSet)):
-                                newSet.add(move)
+                for k in range(self.n_nodes):
+                    if self[0][k][j] == 1:
+                        if not k in list(set().union(reachSet,newSet)):
+                            newSet.add(k)
             currentSet = newSet - reachSet
             reachSet = set().union(reachSet,newSet)
-            if (self.r_row,self.r_col) in reachSet:
+            if self.r_node in reachSet:
                 return True
         return False
 
     def atgoal(self,goal):
-        if goal == [self.r_row,self.r_col]:
+        if goal == self.r_node:
             return True
         return False
 

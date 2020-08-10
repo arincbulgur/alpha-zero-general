@@ -26,7 +26,7 @@ class MCTS():
         self.Es = {}  # stores game.getGameEnded ended for board s
         self.Vs = {}  # stores game.getValidMoves for board s
 
-    def getActionProb(self, canonicalBoard, curPlayer, episodeStep, temp=1):
+    def getActionProb(self, canonicalGraph, curPlayer, episodeStep, temp=1):
         """
         This function performs numMCTSSims simulations of MCTS starting from
         canonicalBoard.
@@ -37,9 +37,9 @@ class MCTS():
         """
         for i in range(self.args.numMCTSSims):
             self.Es = {}
-            self.search(canonicalBoard, curPlayer, episodeStep)
+            self.search(canonicalGraph, curPlayer, episodeStep)
 
-        s = self.game.stringRepresentation(canonicalBoard)
+        s = self.game.stringRepresentation(canonicalGraph)
         if curPlayer == 1:
             actionSize = self.game.getActionSizeRunner()
         else:
@@ -58,7 +58,7 @@ class MCTS():
         probs = [x / counts_sum for x in counts]
         return probs
 
-    def search(self, canonicalBoard, curPlayer, episodeStep):
+    def search(self, canonicalGraph, curPlayer, episodeStep):
         """
         This function performs one iteration of MCTS. It is recursively called
         till a leaf node is found. The action chosen at each node is one that
@@ -78,10 +78,10 @@ class MCTS():
             v: the negative of the value of the current canonicalBoard
         """
 
-        s = self.game.stringRepresentation(canonicalBoard)
+        s = self.game.stringRepresentation(canonicalGraph)
         resStepsRun = (self.args.maxlenOfEps-(episodeStep-2))//2
 
-        gameEnding = self.game.getGameEnded(canonicalBoard, 1, resStepsRun)
+        gameEnding = self.game.getGameEnded(canonicalGraph, 1, resStepsRun)
         if gameEnding != 0:
             # terminal node
             return -gameEnding*curPlayer
@@ -89,10 +89,10 @@ class MCTS():
         if (s, curPlayer) not in self.Ps:
             # leaf node
             if curPlayer == 1:
-                self.Ps[(s, curPlayer)], v = self.rnnet.predict(canonicalBoard)
+                self.Ps[(s, curPlayer)], v = self.rnnet.predict(canonicalGraph)
             else:
-                self.Ps[(s, curPlayer)], v = self.bnnet.predict(canonicalBoard)
-            valids = self.game.getValidMoves(canonicalBoard, curPlayer)
+                self.Ps[(s, curPlayer)], v = self.bnnet.predict(canonicalGraph)
+            valids = self.game.getValidMoves(canonicalGraph, curPlayer)
             self.Ps[(s, curPlayer)] = self.Ps[(s, curPlayer)] * valids  # masking invalid moves
             sum_Ps_s = np.sum(self.Ps[(s, curPlayer)])
             if sum_Ps_s > 0:
@@ -136,7 +136,7 @@ class MCTS():
                     best_act = a
 
         a = best_act
-        next_s, next_player= self.game.getNextState(canonicalBoard, curPlayer, a)
+        next_s, next_player= self.game.getNextState(canonicalGraph, curPlayer, a)
 
         # print(episodeStep, self.game.getGameEnded(canonicalBoard, 1, resStepsRun))
         v = self.search(next_s,next_player,episodeStep+1)

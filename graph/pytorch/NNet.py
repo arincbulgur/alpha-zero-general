@@ -27,7 +27,7 @@ args = dotdict({
 
 class NNetWrapper(NeuralNet):
     def __init__(self, game, agent):
-        self.board_x, self.board_y = game.getBoardSize()
+        self.n_nodes = game.getGraphSize()
         if agent == 1:
             self.action_size = game.getActionSizeRunner()
         else:
@@ -51,8 +51,8 @@ class NNetWrapper(NeuralNet):
             t = tqdm(range(batch_count), desc='Training Net')
             for _ in t:
                 sample_ids = np.random.randint(len(examples), size=args.batch_size)
-                boards, pis, vs = list(zip(*[examples[i] for i in sample_ids]))
-                graphs = self.convert2graph(boards, pis, vs)
+                graphs, pis, vs = list(zip(*[examples[i] for i in sample_ids]))
+                graphs = self.convertgraph2graph(graphs, pis, vs)
                 loader = DataLoader(graphs, batch_size=len(graphs))
 
                 for data in loader:
@@ -111,7 +111,7 @@ class NNetWrapper(NeuralNet):
     #             total_loss.backward()
     #             optimizer.step()
 
-    def predict(self, board):
+    def predict(self, graph):
         """
         board: np array with board
         """
@@ -119,7 +119,7 @@ class NNetWrapper(NeuralNet):
         start = time.time()
 
         # preparing input
-        graph = self.convert2graph_predict(board)
+        graph = self.convertgraph2graph_predict(graph)
         loader = DataLoader([graph], batch_size=1)
         # board = torch.FloatTensor(board.astype(np.float64))
         # if args.cuda: board = board.contiguous().cuda()
@@ -205,6 +205,31 @@ class NNetWrapper(NeuralNet):
             data_list.append(data)
         return data_list
 
+    def convertgraph2graph(self, boards, pis ,vs):
+        data_list = []
+        for (b,p,val) in zip(boards,pis,vs):
+            edge_dep = []
+            edge_arr = []
+            node_label = []
+            for i in range(self.n_nodes):
+                for j in range(self.n_nodes):
+                    if b[0][i][j]==1:
+                        edge_dep.append(int(i))
+                        edge_arr.append(int(j))
+                if b[1][i][i]==1:
+                    node_label.append([0,1,0])
+                elif b[2][i][i]==1:
+                    node_label.append([0,0,1])
+                else:
+                    node_label.append([1,0,0])
+            edge_index = torch.tensor([edge_dep,edge_arr], dtype=torch.long)
+            x = torch.tensor(node_label, dtype=torch.float)
+            pi = torch.tensor([p], dtype=torch.float)
+            v = torch.tensor([val], dtype=torch.float)
+            data = Data(x=x, edge_index=edge_index, pi=pi, v=v)
+            data_list.append(data)
+        return data_list
+
     def convert2graph_predict(self, b):
         edge_dep = []
         edge_arr = []
@@ -241,6 +266,27 @@ class NNetWrapper(NeuralNet):
                     node_label.append([0,0,1])
                 else:
                     node_label.append([1,0,0])
+        edge_index = torch.tensor([edge_dep,edge_arr], dtype=torch.long)
+        x = torch.tensor(node_label, dtype=torch.float)
+        data = Data(x=x, edge_index=edge_index)
+
+        return data
+
+    def convertgraph2graph_predict(self, b):
+        edge_dep = []
+        edge_arr = []
+        node_label = []
+        for i in range(self.n_nodes):
+            for j in range(self.n_nodes):
+                if b[0][i][j]==1:
+                    edge_dep.append(int(i))
+                    edge_arr.append(int(j))
+            if b[1][i][i]==1:
+                node_label.append([0,1,0])
+            elif b[2][i][i]==1:
+                node_label.append([0,0,1])
+            else:
+                node_label.append([1,0,0])
         edge_index = torch.tensor([edge_dep,edge_arr], dtype=torch.long)
         x = torch.tensor(node_label, dtype=torch.float)
         data = Data(x=x, edge_index=edge_index)

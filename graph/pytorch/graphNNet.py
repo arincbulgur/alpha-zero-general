@@ -17,7 +17,7 @@ from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp
 class graphNNet(nn.Module):
     def __init__(self, game, agent, args):
         # game params
-        self.board_x, self.board_y = game.getBoardSize()
+        self.n_nodes = game.getGraphSize()
         if agent == 1:
             self.action_size = game.getActionSizeRunner()
         else:
@@ -26,7 +26,7 @@ class graphNNet(nn.Module):
 
         super(graphNNet, self).__init__()
 
-        self.conv1 = GraphConv(3, 512)
+        self.conv1 = GraphConv(3, 512) # dataset_numfeatures = 3
         self.pool1 = TopKPooling(512, ratio=0.8)
         self.conv2 = GraphConv(512, 512)
         self.pool2 = TopKPooling(512, ratio=0.8)

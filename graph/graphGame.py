@@ -16,60 +16,54 @@ class graphGame(Game):
     def getSquarePiece(piece):
         return OthelloGame.square_content[piece]
 
-    def __init__(self, n_row, n_col, goal):
-        self.n_row = n_row
-        self.n_col = n_col
+    def __init__(self, n_nodes, goal):
+        self.n_nodes = n_nodes
         self.goal = goal
 
-    def getInitBoard(self):
+    def getInitGraph(self):
         # return initial board (numpy board)
-        b = Board(self.n_row, self.n_col, self.goal)
+        b = Board(self.n_nodes, self.goal)
         return np.array(b.pieces)
 
-    def getBoardSize(self):
-        # (a,b) tuple
-        return (self.n_row, self.n_col)
+    def getGraphSize(self):
+        return self.n_nodes
 
     def getActionSizeRunner(self):
         # return number of actions
-        return 5
+        return self.n_nodes + 1
 
     def getActionSizeBlocker(self):
         # return number of actions for blocker
-        return 9
+        return self.n_nodes*2 + 1
 
-    def getNextState(self, board, player, action):
+    def getNextState(self, graph, player, action):
         # if player takes action on board, return next (board,player)
         # action must be a valid move
         if (player == 1 and action == self.getActionSizeRunner()-1) or (player == -1 and action == self.getActionSizeBlocker()-1):
-            return (board, -player)
-        b = Board(self.n_row,self.n_col, self.goal)
-        b.pieces = np.copy(board)
+            return (graph, -player)
+        b = Board(self.n_nodes, self.goal)
+        b.pieces = np.copy(graph)
         if player == 1:
-            runner = np.where(board[4] == 1)
-            b.r_row = runner[0][0]
-            b.r_col = runner[1][0]
+            runner = np.where(graph[1] == 1)
+            b.r_node = runner[0][0]
         else:
-            blocker = np.where(board[5] == 1)
-            b.b_row = blocker[0][0]
-            b.b_col = blocker[1][0]
+            blocker = np.where(board[2] == 1)
+            b.b_node = blocker[0][0]
         b.execute_move(action, player)
         return (b.pieces, -player)
 
-    def getValidMoves(self, board, player):
+    def getValidMoves(self, graph, player):
         # return a fixed size binary vector
         if player == 1:
             valids = [0]*self.getActionSizeRunner()
         else:
             valids = [0]*self.getActionSizeBlocker()
-        b = Board(self.n_row,self.n_col, self.goal)
-        b.pieces = np.copy(board)
-        runner = np.where(board[4] == 1)
-        blocker = np.where(board[5] == 1)
-        b.r_row = runner[0][0]
-        b.r_col = runner[1][0]
-        b.b_row = blocker[0][0]
-        b.b_col = blocker[1][0]
+        b = Board(self.n_nodes, self.goal)
+        b.pieces = np.copy(graph)
+        runner = np.where(board[1] == 1)
+        blocker = np.where(board[2] == 1)
+        b.r_node = runner[0][0]
+        b.b_node = blocker[0][0]
         legalMoves =  b.get_legal_moves(player)
         if len(legalMoves)==0:
             valids[-1]=1
@@ -78,17 +72,15 @@ class graphGame(Game):
             valids[x]=1
         return np.array(valids)
 
-    def getGameEnded(self, board, player, resStepsRun):
+    def getGameEnded(self, graph, player, resStepsRun):
         # return 0 if not ended, 1 if player 1 won, -1 if player 1 lost
         # player = 1
-        b = Board(self.n_row, self.n_col, self.goal)
-        b.pieces = np.copy(board)
-        runner = np.where(board[4] == 1)
-        blocker = np.where(board[5] == 1)
-        b.r_row = runner[0][0]
-        b.r_col = runner[1][0]
-        b.b_row = blocker[0][0]
-        b.b_col = blocker[1][0]
+        b = Board(self.n_nodes, self.goal)
+        b.pieces = np.copy(graph)
+        runner = np.where(graph[1] == 1)
+        blocker = np.where(graph[2] == 1)
+        b.r_node = runner[0][0]
+        b.b_node = blocker[0][0]
         if not b.reachability(resStepsRun, self.goal):
             return -1
         if b.atgoal(self.goal):

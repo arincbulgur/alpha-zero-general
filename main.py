@@ -35,8 +35,8 @@ args = dotdict({
 
 def main():
     log.info('Loading %s...', Game.__name__)
-    goal_position = [9,9]
-    g = Game(10,10,goal_position)
+    goal_position = 49
+    g = Game(50,goal_position)
 
     log.info('Loading %s...', nn.__name__)
     rnnet = nn(g,1)             # Neural network for the runner

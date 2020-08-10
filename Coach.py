@@ -52,31 +52,31 @@ class Coach():
         """
         trainExamplesRunner = []
         trainExamplesBlocker = []
-        board = self.game.getInitBoard()
+        graph = self.game.getInitGraph()
         self.curPlayer = 1
         episodeStep = 0
         removal = self.args.removal
 
         while True:
             episodeStep += 1
-            canonicalBoard = self.game.getCanonicalForm(board, self.curPlayer)
+            canonicalGraph = self.game.getCanonicalForm(graph, self.curPlayer)
             temp = int(episodeStep < self.args.tempThreshold)
 
-            pi = self.mcts.getActionProb(canonicalBoard, self.curPlayer, episodeStep, temp=temp)
+            pi = self.mcts.getActionProb(canonicalGraph, self.curPlayer, episodeStep, temp=temp)
             # sym = self.game.getSymmetries(canonicalBoard, pi)
             # for b, p in sym:
             #     trainExamples.append([b, self.curPlayer, p, None])
             # p = list(pi.ravel())
             if self.curPlayer == 1:
-                trainExamplesRunner.append([board, self.curPlayer, pi, None])
+                trainExamplesRunner.append([graph, self.curPlayer, pi, None])
             else:
-                trainExamplesBlocker.append([board, self.curPlayer, pi, None])
+                trainExamplesBlocker.append([graph, self.curPlayer, pi, None])
 
             action = np.random.choice(len(pi), p=pi)
-            board, self.curPlayer = self.game.getNextState(board, self.curPlayer, action)
+            graph, self.curPlayer = self.game.getNextState(graph, self.curPlayer, action)
 
             resStepsRun = (self.args.maxlenOfEps-(episodeStep+1-2))//2
-            r = self.game.getGameEnded(board, self.curPlayer, resStepsRun)*self.curPlayer
+            r = self.game.getGameEnded(graph, self.curPlayer, resStepsRun)*self.curPlayer
 
             if r != 0:
                 return [(x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer))) for x in trainExamplesRunner],[(x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer))) for x in trainExamplesBlocker]
@@ -167,7 +167,7 @@ class Coach():
             sfile.write('PRERUN/NEWBLO WINS : %d / %d\n' % (rpwins2, bnwins1))
             sfile.write('NEWRUN/PREBLO WINS : %d / %d\n' % (rnwins1, bpwins2))
             sfile.write('NEWRUN/NEWBLO WINS : %d / %d\n' % (rnwins2, bnwins2))
-            if rpwins1 + rpwins2 + rnwins1 + rnwins2 == 0:    
+            if rpwins1 + rpwins2 + rnwins1 + rnwins2 == 0:
                 log.info('ZERO RUNNER WIN')
                 sfile.write('ZERO RUNNER WIN\n')
                 self.rnnet.load_checkpoint(folder=self.args.checkpoint, filename='temprunner.pth.tar')
