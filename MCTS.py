@@ -55,6 +55,8 @@ class MCTS():
 
         counts = [x ** (1. / temp) for x in counts]
         counts_sum = float(sum(counts))
+        if counts_sum == 0:
+            print(episodeStep)
         probs = [x / counts_sum for x in counts]
         return probs
 
@@ -107,9 +109,9 @@ class MCTS():
                 self.Ps[(s, curPlayer)] /= np.sum(self.Ps[(s, curPlayer)])
 
             expCost = 0
-            if curPlayer == -1:
-                cost = self.args.remCost
-                expCost = np.inner(self.Ps[(s,curPlayer)],np.array([0,0,0,0,cost,cost,cost,cost,0]))
+            # if curPlayer == -1:
+            #     cost = self.args.remCost
+            #     expCost = np.inner(self.Ps[(s,curPlayer)],np.array([0,0,0,0,cost,cost,cost,cost,0]))
             self.Vs[(s, curPlayer)] = valids
             self.Ns[(s, curPlayer)] = 0
             return -v+expCost

@@ -41,7 +41,7 @@ class Arena():
         """
         players = [self.player2, None, self.player1]
         curPlayer = 1
-        board = self.game.getInitBoard()
+        board = self.game.getInitGraph()
         it = 0
         gamelist=[]
         while self.game.getGameEnded(board, curPlayer,(self.maxlenOfEps-(it-1))//2) == 0:
@@ -65,7 +65,7 @@ class Arena():
             #print("Game over: Turn ", str(it), "Result ", str(self.game.getGameEnded(board, 1)))
             #self.display(board)
             gamelist.append(board)
-            np.save('./simulations/gameboard%d%d.npy' % (iteration, game_index),gamelist)
+            np.save('./simulations0821/gameboard%d%d.npy' % (iteration, game_index),gamelist)
         return self.game.getGameEnded(board, curPlayer, (self.maxlenOfEps-(it-1))//2)
 
     def playGames(self, num, verbose=False, iteration=0):

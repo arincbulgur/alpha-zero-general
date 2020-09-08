@@ -22,7 +22,7 @@ class graphGame(Game):
 
     def getInitGraph(self):
         # return initial board (numpy board)
-        b = Board(self.n_nodes, self.goal)
+        b = Board(self.n_nodes, self.goal, new=True)
         return np.array(b.pieces)
 
     def getGraphSize(self):
@@ -41,13 +41,13 @@ class graphGame(Game):
         # action must be a valid move
         if (player == 1 and action == self.getActionSizeRunner()-1) or (player == -1 and action == self.getActionSizeBlocker()-1):
             return (graph, -player)
-        b = Board(self.n_nodes, self.goal)
+        b = Board(self.n_nodes, self.goal, new = False)
         b.pieces = np.copy(graph)
         if player == 1:
             runner = np.where(graph[1] == 1)
             b.r_node = runner[0][0]
         else:
-            blocker = np.where(board[2] == 1)
+            blocker = np.where(graph[2] == 1)
             b.b_node = blocker[0][0]
         b.execute_move(action, player)
         return (b.pieces, -player)
@@ -58,10 +58,10 @@ class graphGame(Game):
             valids = [0]*self.getActionSizeRunner()
         else:
             valids = [0]*self.getActionSizeBlocker()
-        b = Board(self.n_nodes, self.goal)
+        b = Board(self.n_nodes, self.goal, new = False)
         b.pieces = np.copy(graph)
-        runner = np.where(board[1] == 1)
-        blocker = np.where(board[2] == 1)
+        runner = np.where(graph[1] == 1)
+        blocker = np.where(graph[2] == 1)
         b.r_node = runner[0][0]
         b.b_node = blocker[0][0]
         legalMoves =  b.get_legal_moves(player)
@@ -75,7 +75,7 @@ class graphGame(Game):
     def getGameEnded(self, graph, player, resStepsRun):
         # return 0 if not ended, 1 if player 1 won, -1 if player 1 lost
         # player = 1
-        b = Board(self.n_nodes, self.goal)
+        b = Board(self.n_nodes, self.goal, new = False)
         b.pieces = np.copy(graph)
         runner = np.where(graph[1] == 1)
         blocker = np.where(graph[2] == 1)

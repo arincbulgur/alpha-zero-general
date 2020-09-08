@@ -17,7 +17,7 @@ class Board():
     # list of all 8 directions on the board, as (x,y) offsets
     __directions = [(1,0),(0,-1),(-1,0),(0,1)]
 
-    def __init__(self, n_nodes, goal):
+    def __init__(self, n_nodes, goal, new=False):
         "Set up initial board configuration."
 
         self.n_nodes = n_nodes
@@ -30,13 +30,21 @@ class Board():
                 self.pieces[i][j] = [0]*self.n_nodes
 
         # Set up for random connectivity and initial positions of runner and blocker
-        for i in range(self.n_nodes):
-            for j in range(self.n_nodes):
-                self.pieces[0][i][j] = random.choice(range(0,2))
-        self.r_node = random.choice([i for i in range(0,self.n_nodes) if i not in [self.goal])
-        self.b_node = random.choice([i for i in range(0,self.n_nodes) if i not in [self.r_node]])
-        self.pieces[1][self.r_node][self.r_node] = 1
-        self.pieces[2][self.b_node][self.b_node] = 1
+        if new == True:
+            reachable = False
+            for i in range(self.n_nodes):
+                for j in range(self.n_nodes):
+                    self.pieces[0][i][j] = random.choices([0,1],weights = [5,1])[0]
+                if i != self.goal and self.pieces[0][i][self.goal] == 1:
+                    reachable = True
+            if reachable == False:
+                self.pieces[0][random.choice([i for i in range(0,self.n_nodes) if i not in [self.goal]])][self.goal] = 1
+            available = list(self.runner_state(self.n_nodes,self.goal) - {self.goal})
+            self.r_node = int(random.choice(available))
+            self.b_node = int(random.choice(available))
+            # self.b_node = random.choice([i for i in range(0,self.n_nodes) if i not in [self.r_node]])
+            self.pieces[1][self.r_node][self.r_node] = 1
+            self.pieces[2][self.b_node][self.b_node] = 1
 
     # add [][] indexer syntax to the Board
     def __getitem__(self, index):
@@ -114,11 +122,11 @@ class Board():
         """
 
         if color == 1:
-            self[1][action][action] = 1
             self[1][self.r_node][self.r_node] = 0
+            self[1][action][action] = 1
         else:
-            self[2][action%self.n_nodes][action%self.n_nodes] = 1
             self[2][self.b_node][self.b_node] = 0
+            self[2][action%self.n_nodes][action%self.n_nodes] = 1
             if action >= self.n_nodes:
                 self[0][self.b_node][action%self.n_nodes] = 0
 
@@ -137,6 +145,20 @@ class Board():
             if self.r_node in reachSet:
                 return True
         return False
+
+    def runner_state(self,resStepsRun, goal):
+        reachSet = set()
+        currentSet = {goal}
+        for i in range(resStepsRun):
+            newSet = set()
+            for j in currentSet:
+                for k in range(self.n_nodes):
+                    if self[0][k][j] == 1:
+                        if not k in list(set().union(reachSet,newSet)):
+                            newSet.add(k)
+            currentSet = newSet - reachSet
+            reachSet = set().union(reachSet,newSet)
+        return reachSet
 
     def atgoal(self,goal):
         if goal == self.r_node:

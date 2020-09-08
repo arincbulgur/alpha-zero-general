@@ -15,7 +15,7 @@ coloredlogs.install(level='INFO')  # Change this to DEBUG to see more info.
 args = dotdict({
     'numIters': 1000,
     'numEps': 50,              # Number of complete self-play games to simulate during a new iteration.
-    'maxlenOfEps': 40,          # Max number of steps in an episode
+    'maxlenOfEps': 30,          # Max number of steps in an episode
     'removal':10,               # Blocker's removal limit
     'remCost':0,                # Cost of removing one edge
     'tempThreshold': 15,        #
@@ -25,7 +25,7 @@ args = dotdict({
     'arenaCompare': 40,         # Number of games to play during arena play to determine if new net will be accepted.
     'cpuct': 1,
 
-    'checkpoint': './temp0716/',
+    'checkpoint': './temp0821/',
     'load_model': False,
     'load_folder_file': ('/dev/models/8x100x50','best.pth.tar'),
     'numItersForTrainExamplesHistory': 20,
@@ -35,8 +35,8 @@ args = dotdict({
 
 def main():
     log.info('Loading %s...', Game.__name__)
-    goal_position = 49
-    g = Game(50,goal_position)
+    goal_position = 14
+    g = Game(15,goal_position)
 
     log.info('Loading %s...', nn.__name__)
     rnnet = nn(g,1)             # Neural network for the runner
